@@ -23,7 +23,6 @@ var _ fyne.Focusable = (*List)(nil)
 
 // List is a widget that pools list items for performance and
 // lays the items out in a vertical direction inside of a scroller.
-// List requires that all items are the same size.
 //
 // Since: 1.4
 type List struct {
