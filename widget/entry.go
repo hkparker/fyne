@@ -1638,7 +1638,11 @@ func (r *entryRenderer) MinSize() fyne.Size {
 }
 
 func (r *entryRenderer) Objects() []fyne.CanvasObject {
-	return r.objects
+	objs := r.objects
+	if r.entry.ActionItem != nil {
+		objs = append(objs, r.entry.ActionItem)
+	}
+	return objs
 }
 
 func (r *entryRenderer) Refresh() {
