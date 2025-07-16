@@ -1,5 +1,8 @@
 package org.golang.app;
 
+import java.util.Base64;
+import java.io.ByteArrayOutputStream;
+import java.nio.ByteBuffer;
 import android.app.Activity;
 import android.app.NativeActivity;
 import android.content.Context;
@@ -8,9 +11,12 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Rect;
+import android.graphics.Bitmap;
+import android.graphics.Bitmap.CompressFormat;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
@@ -32,6 +38,7 @@ public class GoNativeActivity extends NativeActivity {
 	private static GoNativeActivity goNativeActivity;
 	private static final int FILE_OPEN_CODE = 1;
 	private static final int FILE_SAVE_CODE = 2;
+	private static final int CAMERA_OPEN_CODE = 3;
 
 	private static final int DEFAULT_INPUT_TYPE = InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
 
@@ -179,6 +186,16 @@ public class GoNativeActivity extends NativeActivity {
         startActivityForResult(Intent.createChooser(intent, "Open File"), FILE_OPEN_CODE);
     }
 
+    static void showCameraOpen(String filename) {
+        goNativeActivity.doShowCameraOpen(filename);
+    }
+
+    void doShowCameraOpen(String filename) {
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+
+        startActivityForResult(intent, CAMERA_OPEN_CODE); //Intent.createChooser(intent, "Capture Image"), CAMERA_OPEN_CODE);
+    }
+
     static void showFileSave(String mimes, String filename) {
         goNativeActivity.doShowFileSave(mimes, filename);
     }
@@ -309,7 +326,7 @@ public class GoNativeActivity extends NativeActivity {
 	@Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         // unhandled request
-        if (requestCode != FILE_OPEN_CODE && requestCode != FILE_SAVE_CODE) {
+	if (requestCode != FILE_OPEN_CODE && requestCode != FILE_SAVE_CODE && requestCode != CAMERA_OPEN_CODE) {
             return;
         }
 
@@ -318,9 +335,32 @@ public class GoNativeActivity extends NativeActivity {
             filePickerReturned("");
             return;
         }
+	if (requestCode == CAMERA_OPEN_CODE) {
 
-        Uri uri = data.getData();
-        filePickerReturned(uri.toString());
+		Log.i("Fyne", "onActivityResult "+requestCode+ ", " + resultCode + ", " + data);
+		Log.i("Fyne", "data type "+data.getExtras().get("data").getClass().getName());
+		Bitmap photo = (Bitmap)data.getExtras().get("data");
+
+
+		int size = photo.getRowBytes() * photo.getHeight();
+		ByteBuffer buf = ByteBuffer.allocate(size);
+		photo.copyPixelsToBuffer(buf);
+		byte[] byteArray = buf.array();
+		Log.i("Fyne", "first bytes: " + byteArry[4]);
+		String dataAsString = new String(byteArray);
+
+		//ByteArrayOutputStream out = new ByteArrayOutputStream();
+		//photo.compress(CompressFormat.JPEG, 90, out);
+		//String dataAsString = out.toString();
+
+		//String dataAsString = Base64.getEncoder().encodeToString(out.toByteArray());
+		Log.i("Fyne", "data string "+dataAsString);
+
+		filePickerReturned(dataAsString);
+	} else {
+		Uri uri = data.getData();
+		filePickerReturned(uri.toString());
+	}
     }
 
     @Override

@@ -47,6 +47,7 @@ void showKeyboard(JNIEnv* env, int keyboardType);
 void hideKeyboard(JNIEnv* env);
 void showFileOpen(JNIEnv* env, char* mimes);
 void showFileSave(JNIEnv* env, char* mimes, char* filename);
+void showCameraOpen(JNIEnv* env, char* filename);
 void finish(JNIEnv* env, jobject ctx);
 
 void Java_org_golang_app_GoNativeActivity_filePickerReturned(JNIEnv *env, jclass clazz, jstring str);
@@ -56,6 +57,7 @@ import "C"
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"mime"
 	"os"
 	"strings"
@@ -350,6 +352,19 @@ func filePickerReturned(str *C.char) {
 	fileCallback = nil
 }
 
+//export cameraOpenReturned
+func cameraOpenReturned(str *C.char) {
+	// TODO: maybe we can use a dedicated callback?
+	if fileCallback == nil {
+		return
+	}
+
+	slog.Debug("cameraOpenReturned: calling fileCallback")
+	fileCallback(C.GoString(str), nil)
+	slog.Debug("cameraOpenReturned: fileCallback unset")
+	fileCallback = nil
+}
+
 //export insetsChanged
 func insetsChanged(top, bottom, left, right int) {
 	currentSize.InsetTopPx = top
@@ -417,6 +432,26 @@ func driverShowFileSavePicker(callback func(string, func()), filter *FileFilter,
 	save := func(vm, jniEnv, ctx uintptr) error {
 		env := (*C.JNIEnv)(unsafe.Pointer(jniEnv)) // not a Go heap pointer
 		C.showFileSave(env, mimeStr, filenameStr)
+		return nil
+	}
+
+	if err := mobileinit.RunOnJVM(save); err != nil {
+		log.Fatalf("app: %v", err)
+	}
+}
+
+func driverShowCameraOpen(callback func(string, func()), filename string) {
+	slog.Debug("driverShowCameraOpen: fileCallback set")
+	fileCallback = callback
+
+	filenameStr := C.CString(filename)
+	defer C.free(unsafe.Pointer(filenameStr))
+
+	save := func(vm, jniEnv, ctx uintptr) error {
+		slog.Debug("driverShowCameraOpen")
+		env := (*C.JNIEnv)(unsafe.Pointer(jniEnv)) // not a Go heap pointer
+		C.showCameraOpen(env, filenameStr)
+		slog.Debug("driverShowCameraOpen: done")
 		return nil
 	}
 

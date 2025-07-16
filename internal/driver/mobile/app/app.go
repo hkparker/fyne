@@ -57,8 +57,10 @@ type App interface {
 
 	ShowVirtualKeyboard(KeyboardType)
 	HideVirtualKeyboard()
+	// TODO: name the callback parameter to know what to expect (file URI and closer function)
 	ShowFileOpenPicker(func(string, func()), *FileFilter)
 	ShowFileSavePicker(func(string, func()), *FileFilter, string)
+	ShowCameraOpen(callback func(fileURI string, closer func()), PWD /* // TODO*/ string)
 }
 
 // FileFilter is a filter of files.
@@ -155,6 +157,24 @@ func (a *app) ShowFileOpenPicker(callback func(string, func()), filter *FileFilt
 
 func (a *app) ShowFileSavePicker(callback func(string, func()), filter *FileFilter, filename string) {
 	driverShowFileSavePicker(callback, filter, filename)
+}
+
+func (a *app) ShowCameraOpen(callback func(string, func()), filename string) {
+	driverShowCameraOpen(callback, filename)
+}
+
+// TODO: do this for all build targets, not just linux (x11 and Android)? If
+// so, should package gl instead of this package call RegisterFilter??
+//
+// TODO: does Android need this?? It seems to work without it (Nexus 7,
+// KitKat). If only x11 needs this, should we move this to x11.go??
+func (a *app) registerGLViewportFilter() {
+	a.RegisterFilter(func(e any) any {
+		if e, ok := e.(size.Event); ok {
+			a.glctx.Viewport(0, 0, e.WidthPx, e.HeightPx)
+		}
+		return e
+	})
 }
 
 func screenOrientation(width, height int) size.Orientation {
