@@ -346,7 +346,7 @@ public class GoNativeActivity extends NativeActivity {
 		ByteBuffer buf = ByteBuffer.allocate(size);
 		photo.copyPixelsToBuffer(buf);
 		byte[] byteArray = buf.array();
-		Log.i("Fyne", "first bytes: " + byteArry[4]);
+		Log.i("Fyne", "first bytes: " + byteArray[4]);
 		String dataAsString = new String(byteArray);
 
 		//ByteArrayOutputStream out = new ByteArrayOutputStream();
