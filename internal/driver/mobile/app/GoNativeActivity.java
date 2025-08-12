@@ -336,25 +336,20 @@ public class GoNativeActivity extends NativeActivity {
             return;
         }
 	if (requestCode == CAMERA_OPEN_CODE) {
-
-		Log.i("Fyne", "onActivityResult "+requestCode+ ", " + resultCode + ", " + data);
-		Log.i("Fyne", "data type "+data.getExtras().get("data").getClass().getName());
+		//Log.i("Fyne", "onActivityResult "+requestCode+ ", " + resultCode + ", " + data);
+		//Log.i("Fyne", "data type "+data.getExtras().get("data").getClass().getName());
 		Bitmap photo = (Bitmap)data.getExtras().get("data");
-
 
 		int size = photo.getRowBytes() * photo.getHeight();
 		ByteBuffer buf = ByteBuffer.allocate(size);
 		photo.copyPixelsToBuffer(buf);
 		byte[] byteArray = buf.array();
-		Log.i("Fyne", "first bytes: " + byteArray[4]);
-		String dataAsString = new String(byteArray);
 
-		//ByteArrayOutputStream out = new ByteArrayOutputStream();
-		//photo.compress(CompressFormat.JPEG, 90, out);
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		photo.compress(CompressFormat.JPEG, 90, out);
+
 		//String dataAsString = out.toString();
-
-		//String dataAsString = Base64.getEncoder().encodeToString(out.toByteArray());
-		Log.i("Fyne", "data string "+dataAsString);
+		String dataAsString = Base64.getEncoder().encodeToString(out.toByteArray());
 
 		filePickerReturned(dataAsString);
 	} else {
