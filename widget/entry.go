@@ -1655,6 +1655,7 @@ func (r *entryRenderer) Refresh() {
 	if r.entry.ActionItem != nil {
 		r.actionWrapper.Objects = []fyne.CanvasObject{r.entry.ActionItem}
 		r.actionWrapper.Show()
+		r.Layout(r.entry.Size())
 	} else {
 		r.actionWrapper.Objects = []fyne.CanvasObject{}
 		r.actionWrapper.Hide()
