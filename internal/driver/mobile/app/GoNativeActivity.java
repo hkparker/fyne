@@ -2,6 +2,7 @@ package org.golang.app;
 
 import java.util.Base64;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.nio.ByteBuffer;
 import android.app.Activity;
 import android.app.NativeActivity;
@@ -12,7 +13,10 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Bitmap.CompressFormat;
+import android.graphics.Matrix;
+import android.Manifest;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -33,6 +37,20 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
+import androidx.camera.core.impl.utils.executor.CameraXExecutors;
+import java.util.concurrent.Executors;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.lifecycle.LifecycleService;
+import androidx.lifecycle.ProcessLifecycleOwner;
+import com.google.common.util.concurrent.ListenableFuture;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageProxy;
+import androidx.camera.camera2.Camera2Config;
+import androidx.core.content.ContextCompat;
+import androidx.core.app.ActivityCompat;
 
 public class GoNativeActivity extends NativeActivity {
     private static GoNativeActivity goNativeActivity;
@@ -192,8 +210,68 @@ public class GoNativeActivity extends NativeActivity {
     }
 
     void doShowCameraOpen() {
-        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        startActivityForResult(intent, CAMERA_OPEN_CODE);
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions((Activity) this,
+                    new String[] { Manifest.permission.CAMERA },
+                    100);
+        }
+
+        Context t = this;
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                LifecycleService ls = new LifecycleService();
+                ls.onCreate();
+                ls.onStartCommand(null, 0, 0);
+
+                ImageCapture imageCapture =
+                    new ImageCapture.Builder()
+                        .setTargetRotation(getWindow().getDecorView().getRootView().getDisplay().getRotation())
+                        .build();
+
+                ListenableFuture<ProcessCameraProvider> providerListenableFuture = ProcessCameraProvider.getInstance(t);
+                providerListenableFuture.addListener(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            ProcessCameraProvider cameraProvider = providerListenableFuture.get();
+		            cameraProvider.bindToLifecycle(ls, CameraSelector.DEFAULT_BACK_CAMERA, imageCapture);
+                            imageCapture.takePicture(
+                                ContextCompat.getMainExecutor(t),
+                                new ImageCapture.OnImageCapturedCallback() {
+                                    @Override
+                                    public void onCaptureSuccess(ImageProxy image) {
+                                        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+                                        byte[] bytes = new byte[buffer.remaining()];
+                                        buffer.get(bytes);
+                            
+                                        Bitmap photo = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                                        Matrix matrix = new Matrix();
+                                        matrix.postRotate(image.getImageInfo().getRotationDegrees());
+                                        Bitmap rotated = Bitmap.createBitmap(photo, 0, 0, photo.getWidth(), photo.getHeight(), matrix, true);
+
+                                        ByteArrayOutputStream out = new ByteArrayOutputStream();
+                                        rotated.compress(CompressFormat.JPEG, 90, out);
+                                        String dataAsString = Base64.getEncoder().encodeToString(out.toByteArray());
+                                        capturePhotoReturned(dataAsString);
+                                        image.close();
+                                    }
+                            
+                                    @Override
+                                    public void onError(ImageCaptureException exception) {
+                                        exception.printStackTrace();
+                                    }
+                                }
+                            );
+                
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+		    }
+                }, ContextCompat.getMainExecutor(t));
+            }
+        });
     }
 
     static void showFileSave(String mimes, String filename) {
@@ -264,6 +342,7 @@ public class GoNativeActivity extends NativeActivity {
                 GoNativeActivity.this.updateLayout();
             }
         });
+        ProcessCameraProvider.configureInstance(Camera2Config.defaultConfig());
     }
 
     private void setupEntry() {
@@ -330,31 +409,14 @@ public class GoNativeActivity extends NativeActivity {
             return;
         }
 
-        if (requestCode == CAMERA_OPEN_CODE) {
-            if (resultCode != Activity.RESULT_OK) {
-                // dialog was cancelled
-                capturePhotoReturned("");
-                return;
-            }
+        if (resultCode != Activity.RESULT_OK) {
+            // dialog was cancelled
+            filePickerReturned("");
+            return;
+        }
 
-            Bitmap photo = (Bitmap)data.getExtras().get("data");
-
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            photo.compress(CompressFormat.JPEG, 90, out);
-
-            String dataAsString = Base64.getEncoder().encodeToString(out.toByteArray());
-
-            capturePhotoReturned(dataAsString);
-        } else {
-            if (resultCode != Activity.RESULT_OK) {
-                // dialog was cancelled
-                filePickerReturned("");
-                return;
-            }
-
-            Uri uri = data.getData();
-            filePickerReturned(uri.toString());
-	}
+        Uri uri = data.getData();
+        filePickerReturned(uri.toString());
     }
 
     @Override
